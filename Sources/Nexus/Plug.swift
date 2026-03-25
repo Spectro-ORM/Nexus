@@ -47,5 +47,6 @@ public func pipe(_ first: @escaping Plug, _ second: @escaping Plug) -> Plug {
 /// - Parameter plugs: An ordered list of plugs to compose.
 /// - Returns: A single plug representing the full pipeline.
 public func pipeline(_ plugs: [Plug]) -> Plug {
-    plugs.reduce({ conn in conn }, pipe)
+    let identity: Plug = { conn in conn }
+    return plugs.reduce(identity, pipe)
 }
