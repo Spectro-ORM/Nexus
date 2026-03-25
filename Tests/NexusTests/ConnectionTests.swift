@@ -70,6 +70,41 @@ struct ConnectionTests {
         let _ = original.assign(key: "foo", value: "bar")
         #expect(original.assigns.isEmpty)
     }
+
+    // MARK: - Respond
+
+    @Test("test_connection_respond_setsStatusAndBody")
+    func test_connection_respond_setsStatusAndBody() {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        let conn = Connection(request: request)
+            .respond(status: .notFound, body: .string("Not Found"))
+        #expect(conn.response.status == .notFound)
+        if case .buffered = conn.responseBody { } else { Issue.record("Expected .buffered responseBody") }
+    }
+
+    @Test("test_connection_respond_haltsConnection")
+    func test_connection_respond_haltsConnection() {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        let conn = Connection(request: request)
+            .respond(status: .ok, body: .string("OK"))
+        #expect(conn.isHalted == true)
+    }
+
+    @Test("test_connection_respond_defaultsToEmptyBody")
+    func test_connection_respond_defaultsToEmptyBody() {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        let conn = Connection(request: request).respond(status: .noContent)
+        if case .empty = conn.responseBody { } else { Issue.record("Expected .empty responseBody") }
+    }
+
+    @Test("test_connection_respond_doesNotMutateOriginal")
+    func test_connection_respond_doesNotMutateOriginal() {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        let original = Connection(request: request)
+        let _ = original.respond(status: .notFound, body: .string("Not Found"))
+        #expect(original.response.status == .ok)
+        #expect(original.isHalted == false)
+    }
 }
 
 // MARK: - Plug Composition Tests
@@ -84,22 +119,24 @@ struct PlugCompositionTests {
 
     @Test("test_pipe_runsFirstThenSecond")
     func test_pipe_runsFirstThenSecond() async throws {
-        var order: [Int] = []
-        let first: Plug = { conn in order.append(1); return conn }
-        let second: Plug = { conn in order.append(2); return conn }
+        let tracker = OrderTracker()
+        let first: Plug = { conn in await tracker.append(1); return conn }
+        let second: Plug = { conn in await tracker.append(2); return conn }
         let composed = pipe(first, second)
         _ = try await composed(makeConnection())
+        let order = await tracker.values
         #expect(order == [1, 2])
     }
 
     @Test("test_pipe_shortCircuitsWhenFirstHalts")
     func test_pipe_shortCircuitsWhenFirstHalts() async throws {
-        var secondCalled = false
+        let tracker = CallTracker()
         let first: Plug = { conn in conn.halted() }
-        let second: Plug = { conn in secondCalled = true; return conn }
+        let second: Plug = { conn in await tracker.markCalled(); return conn }
         let composed = pipe(first, second)
         _ = try await composed(makeConnection())
-        #expect(secondCalled == false)
+        let wasCalled = await tracker.wasCalled
+        #expect(wasCalled == false)
     }
 
     @Test("test_pipeline_appliesAllPlugs")
@@ -123,4 +160,14 @@ struct PlugCompositionTests {
 private actor Counter {
     private(set) var value = 0
     func increment() { value += 1 }
+}
+
+private actor OrderTracker {
+    private(set) var values: [Int] = []
+    func append(_ value: Int) { values.append(value) }
+}
+
+private actor CallTracker {
+    private(set) var wasCalled = false
+    func markCalled() { wasCalled = true }
 }
