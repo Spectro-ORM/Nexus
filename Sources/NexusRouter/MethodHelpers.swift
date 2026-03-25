@@ -50,3 +50,27 @@ public func DELETE(_ path: String, _ handler: @escaping Plug) -> Route {
 public func PATCH(_ path: String, _ handler: @escaping Plug) -> Route {
     Route(method: .patch, path: path, handler: handler)
 }
+
+/// Creates a route that matches HEAD requests to the given path.
+///
+/// If no explicit HEAD route is defined for a path, the router automatically
+/// falls back to a matching GET route (stripping the response body), per
+/// RFC 9110 Section 9.3.2.
+///
+/// - Parameters:
+///   - path: The path pattern to match (e.g., `"/users/:id"`).
+///   - handler: The plug invoked when the route matches.
+/// - Returns: A ``Route`` for HEAD requests to `path`.
+public func HEAD(_ path: String, _ handler: @escaping Plug) -> Route {
+    Route(method: .head, path: path, handler: handler)
+}
+
+/// Creates a route that matches OPTIONS requests to the given path.
+///
+/// - Parameters:
+///   - path: The path pattern to match (e.g., `"/users"`).
+///   - handler: The plug invoked when the route matches.
+/// - Returns: A ``Route`` for OPTIONS requests to `path`.
+public func OPTIONS(_ path: String, _ handler: @escaping Plug) -> Route {
+    Route(method: .options, path: path, handler: handler)
+}

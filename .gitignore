@@ -1,0 +1,7 @@
+Docs/
+.DS_Store
+.build/
+.swiftpm/
+.claude/
+CLAUDE.md
+

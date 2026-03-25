@@ -90,4 +90,18 @@ struct MethodHelperTests {
         #expect(route.method == .patch)
         #expect(route.path == "/users/:id")
     }
+
+    @Test("test_HEAD_createsRouteWithHeadMethod")
+    func test_HEAD_createsRouteWithHeadMethod() {
+        let route = HEAD("/health") { conn in conn }
+        #expect(route.method == .head)
+        #expect(route.path == "/health")
+    }
+
+    @Test("test_OPTIONS_createsRouteWithOptionsMethod")
+    func test_OPTIONS_createsRouteWithOptionsMethod() {
+        let route = OPTIONS("/users") { conn in conn }
+        #expect(route.method == .options)
+        #expect(route.path == "/users")
+    }
 }

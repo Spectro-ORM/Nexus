@@ -19,8 +19,8 @@ import HTTPTypes
 ///         conn.respond(status: .created, body: .string("created"))
 ///     }
 ///     GET("/users/:id") { conn in
-///         let id = conn.assigns["id"] as! String
-///         conn.respond(status: .ok, body: .string("User \(id)"))
+///         let id = conn.params["id"] ?? ""
+///         return conn.respond(status: .ok, body: .string("User \(id)"))
 ///     }
 /// }
 /// ```
@@ -37,10 +37,23 @@ public struct Router: Sendable {
         self.routes = routes()
     }
 
+    /// Calls ``handle(_:)`` so the router can be used directly as a ``Plug``.
+    ///
+    /// ```swift
+    /// let app = pipe(logger, router)
+    /// ```
+    ///
+    /// - Parameter connection: The incoming connection.
+    /// - Returns: The connection after routing.
+    /// - Throws: Any infrastructure error thrown by the matched route's handler.
+    public func callAsFunction(_ connection: Connection) async throws -> Connection {
+        try await handle(connection)
+    }
+
     /// Dispatches the connection to the first matching route.
     ///
     /// Path parameters extracted from the route pattern (e.g., `:id`) are
-    /// injected into the connection's ``Connection/assigns`` dictionary before
+    /// injected into the connection's ``Connection/params`` dictionary before
     /// the handler is called.
     ///
     /// - Parameter connection: The incoming connection.
@@ -56,13 +69,27 @@ public struct Router: Sendable {
         for route in routes {
             if let params = route.pattern.match(requestPath) {
                 if route.method == requestMethod {
-                    var conn = connection
-                    for (key, value) in params {
-                        conn = conn.assign(key: key, value: value)
-                    }
+                    let conn = params.isEmpty
+                        ? connection
+                        : connection.mergeParams(params)
                     return try await route.handler(conn)
                 } else {
                     pathMatchedButMethodDidNot = true
+                }
+            }
+        }
+
+        // RFC 9110 §9.3.2: HEAD should mirror GET without a body.
+        // Fall back to a matching GET route if no explicit HEAD route matched.
+        if requestMethod == .head {
+            for route in routes where route.method == .get {
+                if let params = route.pattern.match(requestPath) {
+                    let conn = params.isEmpty
+                        ? connection
+                        : connection.mergeParams(params)
+                    var result = try await route.handler(conn)
+                    result.responseBody = .empty
+                    return result
                 }
             }
         }

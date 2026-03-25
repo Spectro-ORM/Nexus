@@ -1,3 +1,4 @@
+import Foundation
 import HTTPTypes
 import Nexus
 
@@ -57,7 +58,7 @@ struct PathPattern: Sendable {
                 guard pathSegment == expected else { return nil }
             case .parameter(let name):
                 guard !pathSegment.isEmpty else { return nil }
-                params[name] = pathSegment
+                params[name] = pathSegment.removingPercentEncoding ?? pathSegment
             }
         }
         return params

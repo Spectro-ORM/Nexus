@@ -107,6 +107,53 @@ struct ConnectionTests {
     }
 }
 
+// MARK: - Path Params Tests
+
+@Suite("Path Params")
+struct PathParamsTests {
+
+    private func makeConnection() -> Connection {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        return Connection(request: request)
+    }
+
+    @Test("test_connection_params_emptyByDefault")
+    func test_connection_params_emptyByDefault() {
+        let conn = makeConnection()
+        #expect(conn.params.isEmpty)
+    }
+
+    @Test("test_connection_mergeParams_storesParams")
+    func test_connection_mergeParams_storesParams() {
+        let conn = makeConnection().mergeParams(["id": "42"])
+        #expect(conn.params["id"] == "42")
+    }
+
+    @Test("test_connection_mergeParams_mergesWithExisting")
+    func test_connection_mergeParams_mergesWithExisting() {
+        let conn = makeConnection()
+            .mergeParams(["id": "42"])
+            .mergeParams(["name": "alice"])
+        #expect(conn.params["id"] == "42")
+        #expect(conn.params["name"] == "alice")
+    }
+
+    @Test("test_connection_mergeParams_overwritesDuplicateKeys")
+    func test_connection_mergeParams_overwritesDuplicateKeys() {
+        let conn = makeConnection()
+            .mergeParams(["id": "old"])
+            .mergeParams(["id": "new"])
+        #expect(conn.params["id"] == "new")
+    }
+
+    @Test("test_connection_params_doesNotMutateOriginal")
+    func test_connection_params_doesNotMutateOriginal() {
+        let original = makeConnection()
+        let _ = original.mergeParams(["id": "42"])
+        #expect(original.params.isEmpty)
+    }
+}
+
 // MARK: - Plug Composition Tests
 
 @Suite("Plug Composition")

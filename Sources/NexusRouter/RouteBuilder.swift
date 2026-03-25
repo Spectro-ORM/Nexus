@@ -31,6 +31,14 @@ public enum RouteBuilder {
         [expression]
     }
 
+    /// Passes through an array of routes from a ``scope(_:_:)`` call.
+    ///
+    /// - Parameter expression: An array of routes (e.g., from a scope).
+    /// - Returns: The routes, unchanged.
+    public static func buildExpression(_ expression: [Route]) -> [Route] {
+        expression
+    }
+
     /// Supports optional routes in `if` statements without an `else`.
     ///
     /// - Parameter component: The routes if the condition is true, or `nil`.

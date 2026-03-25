@@ -70,5 +70,15 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ]
         ),
+        .testTarget(
+            name: "NexusHummingbirdTests",
+            dependencies: [
+                "Nexus",
+                "NexusHummingbird",
+                .product(name: "Hummingbird", package: "hummingbird"),
+                .product(name: "HummingbirdTesting", package: "hummingbird"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ]
+        ),
     ]
 )

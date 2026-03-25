@@ -104,4 +104,27 @@ struct PathPatternTests {
         let result = pattern.match("/users/42?expand=true")
         #expect(result?["id"] == "42")
     }
+
+    // MARK: - Percent-Decoding
+
+    @Test("test_pathPattern_percentEncodedParam_decodesValue")
+    func test_pathPattern_percentEncodedParam_decodesValue() {
+        let pattern = PathPattern("/users/:name")
+        let result = pattern.match("/users/John%20Doe")
+        #expect(result?["name"] == "John Doe")
+    }
+
+    @Test("test_pathPattern_percentEncodedParam_decodesSpecialChars")
+    func test_pathPattern_percentEncodedParam_decodesSpecialChars() {
+        let pattern = PathPattern("/tags/:tag")
+        let result = pattern.match("/tags/swift%26vapor")
+        #expect(result?["tag"] == "swift&vapor")
+    }
+
+    @Test("test_pathPattern_percentEncodedParam_preservesMalformed")
+    func test_pathPattern_percentEncodedParam_preservesMalformed() {
+        let pattern = PathPattern("/users/:name")
+        let result = pattern.match("/users/bad%ZZvalue")
+        #expect(result?["name"] == "bad%ZZvalue")
+    }
 }

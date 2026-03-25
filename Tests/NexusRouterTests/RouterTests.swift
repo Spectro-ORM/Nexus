@@ -104,15 +104,15 @@ struct RouterTests {
 
     // MARK: - Path Parameters
 
-    @Test("test_router_paramRoute_extractsParamToAssigns")
-    func test_router_paramRoute_extractsParamToAssigns() async throws {
+    @Test("test_router_paramRoute_extractsParamToParams")
+    func test_router_paramRoute_extractsParamToParams() async throws {
         let router = Router {
             GET("/users/:id") { conn in
                 conn.respond(status: .ok)
             }
         }
         let result = try await router.handle(makeConnection(path: "/users/42"))
-        #expect(result.assigns["id"] as? String == "42")
+        #expect(result.params["id"] == "42")
     }
 
     @Test("test_router_paramRoute_multipleParams")
@@ -125,8 +125,8 @@ struct RouterTests {
         let result = try await router.handle(
             makeConnection(path: "/users/7/posts/99")
         )
-        #expect(result.assigns["userId"] as? String == "7")
-        #expect(result.assigns["postId"] as? String == "99")
+        #expect(result.params["userId"] == "7")
+        #expect(result.params["postId"] == "99")
     }
 
     // MARK: - DSL Integration
@@ -179,5 +179,87 @@ struct RouterTests {
         await #expect(throws: TestError.self) {
             try await router.handle(makeConnection(path: "/fail"))
         }
+    }
+
+    // MARK: - callAsFunction
+
+    @Test("test_router_callAsFunction_delegatesToHandle")
+    func test_router_callAsFunction_delegatesToHandle() async throws {
+        let router = Router {
+            GET("/health") { conn in
+                conn.respond(status: .ok, body: .string("OK"))
+            }
+        }
+        let result = try await router(makeConnection(path: "/health"))
+        #expect(result.response.status == .ok)
+        #expect(result.isHalted == true)
+    }
+
+    @Test("test_router_asPlug_worksInPipeline")
+    func test_router_asPlug_worksInPipeline() async throws {
+        let tagConnection: Plug = { conn in
+            conn.assign(key: "middleware_ran", value: true)
+        }
+        let router = Router {
+            GET("/health") { conn in
+                conn.respond(status: .ok, body: .string("OK"))
+            }
+        }
+        let app = pipe(tagConnection, router.callAsFunction)
+        let result = try await app(makeConnection(path: "/health"))
+        #expect(result.response.status == .ok)
+        #expect(result.assigns["middleware_ran"] as? Bool == true)
+    }
+
+    // MARK: - HEAD Auto-Fallback
+
+    @Test("test_router_headRequest_fallsBackToGetRoute")
+    func test_router_headRequest_fallsBackToGetRoute() async throws {
+        let router = Router {
+            GET("/health") { conn in
+                conn.respond(status: .ok, body: .string("OK"))
+            }
+        }
+        let result = try await router.handle(makeConnection(method: .head, path: "/health"))
+        #expect(result.response.status == .ok)
+    }
+
+    @Test("test_router_headRequest_fallbackStripsBody")
+    func test_router_headRequest_fallbackStripsBody() async throws {
+        let router = Router {
+            GET("/health") { conn in
+                conn.respond(status: .ok, body: .string("OK"))
+            }
+        }
+        let result = try await router.handle(makeConnection(method: .head, path: "/health"))
+        if case .empty = result.responseBody { } else {
+            Issue.record("Expected .empty responseBody for HEAD fallback")
+        }
+    }
+
+    @Test("test_router_headRequest_explicitHeadTakesPrecedence")
+    func test_router_headRequest_explicitHeadTakesPrecedence() async throws {
+        let router = Router {
+            HEAD("/health") { conn in
+                conn.respond(status: .noContent)
+            }
+            GET("/health") { conn in
+                conn.respond(status: .ok, body: .string("OK"))
+            }
+        }
+        let result = try await router.handle(makeConnection(method: .head, path: "/health"))
+        #expect(result.response.status == .noContent)
+    }
+
+    @Test("test_router_optionsRequest_matchesExplicitRoute")
+    func test_router_optionsRequest_matchesExplicitRoute() async throws {
+        let router = Router {
+            OPTIONS("/users") { conn in
+                conn.respond(status: .noContent)
+            }
+        }
+        let result = try await router.handle(makeConnection(method: .options, path: "/users"))
+        #expect(result.response.status == .noContent)
+        #expect(result.isHalted == true)
     }
 }
