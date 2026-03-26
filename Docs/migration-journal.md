@@ -237,3 +237,56 @@ func donutRoutes(db: DB) -> [Route] {
 3. **Single handler param** — `conn` replaces the `(request, context)` pair; everything is on the connection
 4. **Status codes for free** — Hummingbird's String return always produced 200; Nexus lets you set `.created` etc.
 5. **`encodeJSON` deleted** — the global helper is replaced by `conn.json(value:)` which also sets Content-Type
+
+---
+
+## Sprint Progress Log
+
+A record of Nexus from scaffold to production-capable framework in one session.
+
+### Sprint 0 — Scaffold
+Repository foundation: `Connection`, `Plug` typealias, `RequestBody`/`ResponseBody` enums, `pipe`/`pipeline` composition, CI workflow.
+
+### Sprint 1 — Router DSL
+Result-builder router: `Route`, `PathPattern`, `RouteBuilder`, `GET`/`POST`/`PUT`/`DELETE`/`PATCH` helpers, first-match dispatch, 404/405, parameterized paths via `:id` segments.
+
+### Sprint 2 — Hummingbird Adapter + Route Composition
+`NexusHummingbirdAdapter` (HTTPResponder), buffered request bodies, `scope()` with prefix grouping, `scope(_:through:)` per-scope middleware, `Router.callAsFunction`, typed `conn.params`, percent-decoding, `HEAD`/`OPTIONS` helpers, auto-HEAD-to-GET fallback.
+
+### Sprint 3 — Lifecycle Hooks + ConfigurablePlug (ADR-006)
+`beforeSend` LIFO callbacks on Connection, `registerBeforeSend`/`runBeforeSend`, adapter integration. `ConfigurablePlug` protocol with `Options`/`init(options:)`/`call(_:)` and `asPlug()` bridge.
+
+### Sprint 4 — Convenience Layer
+`conn.queryParams`, `conn.decode(as:)` (JSON → Decodable), `conn.json(status:value:)` (Encodable → JSON response with Content-Type). `NexusHTTPError` + `rescueErrors(_:)` (throw-to-halt bridge). DonutShop ported and running — 18/19 API tests passing.
+
+### Sprint 5 — JSONValue, Plug Library, Forward, Wildcards
+`conn.jsonBody()` → `JSONValue` with typed accessors for dynamic JSON access. `requestLogger()`, `requestId()`, `corsPlug()` — first shipped plugs. `forward(_:to:)` sub-router delegation. `*`/`*rest` wildcard catch-all in PathPattern.
+
+### Sprint 6 — Developer Ergonomics
+`NexusTest` target with `TestConnection.build()`. Connection convenience helpers: `putRespHeader`, `deleteRespHeader`, `getReqHeader`, `putRespContentType`, `putStatus` (non-halting), `host`/`scheme` accessors. `ANY()` catch-all method route. `basicAuth()` plug with `WWW-Authenticate` challenge. `sslRedirect()` plug for HTTPS enforcement.
+
+### Test Growth
+
+| Sprint | Tests | Suites |
+|--------|-------|--------|
+| 0-1 | 43 | 5 |
+| 2 | 86 | 10 |
+| 3 | 102 | 12 |
+| 4 | 129 | 17 |
+| 5 | 162 | 23 |
+| 6 | 180 | 27 |
+
+### Nexus vs Elixir Plug Coverage (after Sprint 6)
+
+| Area | Coverage |
+|------|----------|
+| Conn fields/functions | ~80% (missing: cookies, remote_ip, private, merged params) |
+| Router features | ~95% (missing: match-any-method as standalone) |
+| Built-in plugs | ~50% (have: Logger, RequestId, CORS, BasicAuth, SSL. Missing: Parsers, Static, Session, CSRF) |
+| Test helpers | Started (NexusTest target) |
+| Crypto | 0% (no signing/encryption — needed for sessions) |
+
+### What's Next
+
+**Sprint 7 (Tier 2):** Cookies, URL-encoded body parsing, `conn.remote_ip`, chunked responses, `send_file`
+**Sprint 8 (Tier 3):** `Plug.Crypto` (CryptoKit), `Plug.Session`, CSRF protection, multipart parsing, static file serving
