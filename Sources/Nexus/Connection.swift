@@ -45,6 +45,16 @@ public struct Connection: Sendable {
     /// Keys are `String`s; values are any `Sendable` type.
     public var assigns: [String: any Sendable]
 
+    // MARK: - Lifecycle Hooks
+
+    /// Callbacks invoked in LIFO order just before the response is delivered.
+    ///
+    /// Each callback receives the connection and returns a (possibly modified)
+    /// connection. Registered via ``registerBeforeSend(_:)``, executed via
+    /// ``runBeforeSend()``. The server adapter is responsible for calling
+    /// `runBeforeSend()` before serializing the response.
+    public var beforeSend: [@Sendable (Connection) -> Connection]
+
     // MARK: - Init
 
     /// Creates a new `Connection` from the given HTTP request.
@@ -59,6 +69,7 @@ public struct Connection: Sendable {
         self.responseBody = .empty
         self.isHalted = false
         self.assigns = [:]
+        self.beforeSend = []
     }
 }
 

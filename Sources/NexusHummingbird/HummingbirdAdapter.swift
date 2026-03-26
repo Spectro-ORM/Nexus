@@ -85,9 +85,12 @@ extension NexusHummingbirdAdapter: HTTPResponder {
             return Response(status: .internalServerError)
         }
 
-        // 3. Convert Nexus Connection → Hummingbird Response
+        // 3. Run lifecycle hooks before serializing the response (ADR-006)
+        let finalResult = result.runBeforeSend()
+
+        // 4. Convert Nexus Connection → Hummingbird Response
         let responseBody: HummingbirdCore.ResponseBody
-        switch result.responseBody {
+        switch finalResult.responseBody {
         case .empty:
             responseBody = HummingbirdCore.ResponseBody()
         case .buffered(let data):
@@ -101,8 +104,8 @@ extension NexusHummingbirdAdapter: HTTPResponder {
         }
 
         return Response(
-            status: result.response.status,
-            headers: result.response.headerFields,
+            status: finalResult.response.status,
+            headers: finalResult.response.headerFields,
             body: responseBody
         )
     }

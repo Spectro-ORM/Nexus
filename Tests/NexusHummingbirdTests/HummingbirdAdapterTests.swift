@@ -172,6 +172,30 @@ struct HummingbirdAdapterTests {
         }
     }
 
+    @Test func test_adapter_beforeSend_callbacksRunBeforeSerialization() async throws {
+        let plug: Plug = { conn in
+            conn
+                .registerBeforeSend { c in
+                    var copy = c
+                    copy.response.headerFields[HTTPField.Name("X-Before-Send")!] = "applied"
+                    return copy
+                }
+                .respond(status: .ok, body: .string("hello"))
+        }
+
+        try await withApp(plug: plug) { client in
+            let response = try await client.executeRequest(
+                uri: "/",
+                method: .get,
+                headers: [:],
+                body: nil
+            )
+            #expect(response.status == .ok)
+            #expect(response.headers[HTTPField.Name("X-Before-Send")!] == "applied")
+            #expect(String(buffer: response.body) == "hello")
+        }
+    }
+
     @Test func test_adapter_emptyBody_returnsEmptyResponse() async throws {
         let plug: Plug = { conn in
             conn.respond(status: .noContent)

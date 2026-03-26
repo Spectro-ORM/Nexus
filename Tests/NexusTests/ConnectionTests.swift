@@ -154,6 +154,101 @@ struct PathParamsTests {
     }
 }
 
+// MARK: - Before Send Tests
+
+@Suite("Before Send")
+struct BeforeSendTests {
+
+    private func makeConnection() -> Connection {
+        let request = HTTPRequest(method: .get, scheme: "https", authority: "example.com", path: "/")
+        return Connection(request: request)
+    }
+
+    @Test("test_connection_beforeSend_emptyByDefault")
+    func test_connection_beforeSend_emptyByDefault() {
+        let conn = makeConnection()
+        #expect(conn.beforeSend.isEmpty)
+    }
+
+    @Test("test_connection_registerBeforeSend_addsCallback")
+    func test_connection_registerBeforeSend_addsCallback() {
+        let conn = makeConnection()
+            .registerBeforeSend { c in c }
+        #expect(conn.beforeSend.count == 1)
+    }
+
+    @Test("test_connection_runBeforeSend_executesInLIFOOrder")
+    func test_connection_runBeforeSend_executesInLIFOOrder() {
+        let conn = makeConnection()
+            .registerBeforeSend { c in
+                let trail = (c.assigns["order"] as? String ?? "") + "1"
+                return c.assign(key: "order", value: trail)
+            }
+            .registerBeforeSend { c in
+                let trail = (c.assigns["order"] as? String ?? "") + "2"
+                return c.assign(key: "order", value: trail)
+            }
+            .registerBeforeSend { c in
+                let trail = (c.assigns["order"] as? String ?? "") + "3"
+                return c.assign(key: "order", value: trail)
+            }
+            .runBeforeSend()
+        // LIFO: callback 3 runs first, then 2, then 1
+        #expect(conn.assigns["order"] as? String == "321")
+    }
+
+    @Test("test_connection_runBeforeSend_clearsCallbacksAfterExecution")
+    func test_connection_runBeforeSend_clearsCallbacksAfterExecution() {
+        let conn = makeConnection()
+            .registerBeforeSend { c in c }
+            .registerBeforeSend { c in c }
+            .runBeforeSend()
+        #expect(conn.beforeSend.isEmpty)
+    }
+
+    @Test("test_connection_runBeforeSend_noCallbacks_returnsUnchanged")
+    func test_connection_runBeforeSend_noCallbacks_returnsUnchanged() {
+        let conn = makeConnection()
+            .respond(status: .ok, body: .string("hello"))
+        let result = conn.runBeforeSend()
+        #expect(result.response.status == .ok)
+        #expect(result.beforeSend.isEmpty)
+    }
+
+    @Test("test_connection_runBeforeSend_callbackCanModifyResponse")
+    func test_connection_runBeforeSend_callbackCanModifyResponse() {
+        let conn = makeConnection()
+            .registerBeforeSend { c in
+                var copy = c
+                copy.response.headerFields[.server] = "Nexus"
+                return copy
+            }
+            .respond(status: .ok, body: .string("hello"))
+            .runBeforeSend()
+        #expect(conn.response.headerFields[.server] == "Nexus")
+    }
+
+    @Test("test_connection_runBeforeSend_doubleInvocationSafe")
+    func test_connection_runBeforeSend_doubleInvocationSafe() {
+        let conn = makeConnection()
+            .registerBeforeSend { c in
+                let count = (c.assigns["callCount"] as? Int ?? 0) + 1
+                return c.assign(key: "callCount", value: count)
+            }
+        let first = conn.runBeforeSend()
+        let second = first.runBeforeSend()
+        // Second runBeforeSend has no callbacks — count stays at 1
+        #expect(second.assigns["callCount"] as? Int == 1)
+    }
+
+    @Test("test_connection_registerBeforeSend_doesNotMutateOriginal")
+    func test_connection_registerBeforeSend_doesNotMutateOriginal() {
+        let original = makeConnection()
+        let _ = original.registerBeforeSend { c in c }
+        #expect(original.beforeSend.isEmpty)
+    }
+}
+
 // MARK: - Plug Composition Tests
 
 @Suite("Plug Composition")
