@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "Nexus", targets: ["Nexus"]),
         .library(name: "NexusRouter", targets: ["NexusRouter"]),
         .library(name: "NexusHummingbird", targets: ["NexusHummingbird"]),
+        .library(name: "NexusTest", targets: ["NexusTest"]),
     ],
     dependencies: [
         .package(
@@ -50,6 +51,16 @@ let package = Package(
             dependencies: [
                 "Nexus",
                 .product(name: "Hummingbird", package: "hummingbird"),
+            ]
+        ),
+
+        // MARK: Test Helpers
+
+        .target(
+            name: "NexusTest",
+            dependencies: [
+                "Nexus",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
             ]
         ),
 

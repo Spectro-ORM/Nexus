@@ -74,3 +74,25 @@ public func HEAD(_ path: String, _ handler: @escaping Plug) -> Route {
 public func OPTIONS(_ path: String, _ handler: @escaping Plug) -> Route {
     Route(method: .options, path: path, handler: handler)
 }
+
+/// Creates routes that match any HTTP method for the given path.
+///
+/// Returns one route per standard method (GET, POST, PUT, DELETE, PATCH,
+/// HEAD, OPTIONS). Works in the ``RouteBuilder`` DSL because the builder
+/// accepts `[Route]` via `buildExpression`.
+///
+/// - Parameters:
+///   - path: The path pattern to match.
+///   - handler: The plug invoked when the route matches.
+/// - Returns: An array of ``Route`` values, one per HTTP method.
+public func ANY(_ path: String, _ handler: @escaping Plug) -> [Route] {
+    [
+        Route(method: .get, path: path, handler: handler),
+        Route(method: .post, path: path, handler: handler),
+        Route(method: .put, path: path, handler: handler),
+        Route(method: .delete, path: path, handler: handler),
+        Route(method: .patch, path: path, handler: handler),
+        Route(method: .head, path: path, handler: handler),
+        Route(method: .options, path: path, handler: handler),
+    ]
+}
