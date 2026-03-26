@@ -1,5 +1,3 @@
-import Foundation
-
 // MARK: - Query Parameters
 
 extension Connection {
@@ -18,21 +16,6 @@ extension Connection {
             return [:]
         }
         let queryString = path[path.index(after: queryStart)...]
-        var params: [String: String] = [:]
-        for pair in queryString.split(separator: "&") {
-            let parts = pair.split(separator: "=", maxSplits: 1)
-            guard let key = parts.first else { continue }
-            let rawKey = String(key).removingPercentEncoding ?? String(key)
-            let rawValue: String
-            if parts.count > 1 {
-                rawValue = String(parts[1]).removingPercentEncoding ?? String(parts[1])
-            } else {
-                rawValue = ""
-            }
-            if params[rawKey] == nil {
-                params[rawKey] = rawValue
-            }
-        }
-        return params
+        return parseURLEncoded(queryString, decodePlus: false)
     }
 }

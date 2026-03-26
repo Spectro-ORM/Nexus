@@ -51,11 +51,14 @@ public struct NexusHummingbirdAdapter: Sendable {
 
 extension NexusHummingbirdAdapter: HTTPResponder {
 
-    public typealias Context = BasicRequestContext
+    public typealias Context = NexusRequestContext
 
     /// Converts a Hummingbird request into a Nexus ``Connection``, runs it
     /// through the plug pipeline, and converts the result back into a
     /// Hummingbird response.
+    ///
+    /// The adapter populates ``Nexus/Connection/remoteIP`` from the NIO
+    /// channel's remote address when available.
     ///
     /// - Parameters:
     ///   - request: The incoming Hummingbird request.
@@ -65,17 +68,22 @@ extension NexusHummingbirdAdapter: HTTPResponder {
     ///   Pipeline errors are caught and converted to 500 responses per ADR-004.
     public func respond(
         to request: Request,
-        context: BasicRequestContext
+        context: NexusRequestContext
     ) async throws -> Response {
         // 1. Convert Hummingbird Request → Nexus Connection
         let buffer = try await request.body.collect(upTo: maxRequestBodySize)
         let nexusRequestBody: Nexus.RequestBody = buffer.readableBytes > 0
             ? .buffered(Data(buffer.readableBytesView))
             : .empty
-        let connection = Connection(
+        var connection = Connection(
             request: request.head,
             requestBody: nexusRequestBody
         )
+
+        // 1b. Populate remote IP from the NIO channel
+        if let ip = context.remoteAddress?.ipAddress {
+            connection = connection.assign(key: Connection.remoteIPKey, value: ip)
+        }
 
         // 2. Run the plug pipeline, catching infrastructure errors (ADR-004)
         let result: Connection
