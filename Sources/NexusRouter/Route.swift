@@ -15,6 +15,8 @@ struct PathPattern: Sendable {
         case literal(String)
         /// A parameterized segment that captures any value (e.g., `:id` captures `"42"`).
         case parameter(String)
+        /// A catch-all segment that matches the rest of the path (e.g., `*` or `*rest`).
+        case wildcard(String?)
     }
 
     let segments: [Segment]
@@ -30,6 +32,10 @@ struct PathPattern: Sendable {
         segments = raw.map { part in
             if part.hasPrefix(":") {
                 .parameter(String(part.dropFirst()))
+            } else if part == "*" {
+                .wildcard(nil)
+            } else if part.hasPrefix("*") {
+                .wildcard(String(part.dropFirst()))
             } else {
                 .literal(part)
             }
@@ -49,18 +55,28 @@ struct PathPattern: Sendable {
             .split(separator: "/", omittingEmptySubsequences: true)
             .map(String.init)
 
-        guard pathSegments.count == segments.count else { return nil }
-
         var params: [String: String] = [:]
-        for (patternSegment, pathSegment) in zip(segments, pathSegments) {
+        for (index, patternSegment) in segments.enumerated() {
             switch patternSegment {
             case .literal(let expected):
-                guard pathSegment == expected else { return nil }
+                guard index < pathSegments.count else { return nil }
+                guard pathSegments[index] == expected else { return nil }
             case .parameter(let name):
-                guard !pathSegment.isEmpty else { return nil }
-                params[name] = pathSegment.removingPercentEncoding ?? pathSegment
+                guard index < pathSegments.count else { return nil }
+                guard !pathSegments[index].isEmpty else { return nil }
+                params[name] = pathSegments[index].removingPercentEncoding ?? pathSegments[index]
+            case .wildcard(let name):
+                // Wildcard matches all remaining segments (including zero)
+                let rest = pathSegments.dropFirst(index).joined(separator: "/")
+                if let name {
+                    params[name] = rest
+                }
+                return params
             }
         }
+
+        // If no wildcard, segment counts must match exactly
+        guard pathSegments.count == segments.count else { return nil }
         return params
     }
 }
