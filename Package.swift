@@ -24,6 +24,10 @@ let package = Package(
             url: "https://github.com/hummingbird-project/hummingbird.git",
             from: "2.0.0"
         ),
+        .package(
+            url: "https://github.com/apple/swift-crypto.git",
+            from: "3.0.0"
+        ),
     ],
     targets: [
         // MARK: Core
@@ -32,6 +36,11 @@ let package = Package(
             name: "Nexus",
             dependencies: [
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(
+                    name: "Crypto",
+                    package: "swift-crypto",
+                    condition: .when(platforms: [.linux])
+                ),
             ]
         ),
 

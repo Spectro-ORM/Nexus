@@ -1,6 +1,10 @@
 import Foundation
 import HTTPTypes
 
+#if canImport(Security)
+import Security
+#endif
+
 /// Configuration for the CSRF protection plug.
 public struct CSRFConfig: Sendable {
 
@@ -125,7 +129,13 @@ public func csrfToken(
 
 private func generateCSRFToken() -> String {
     var bytes = [UInt8](repeating: 0, count: 32)
+    #if canImport(Security)
     _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    #else
+    for i in 0..<bytes.count {
+        bytes[i] = UInt8.random(in: 0...255)
+    }
+    #endif
     return Base64URL.encode(Data(bytes))
 }
 

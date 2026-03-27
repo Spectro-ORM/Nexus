@@ -1,5 +1,10 @@
 import Foundation
+
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// HMAC-SHA256 message signing and verification.
 ///
