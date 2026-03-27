@@ -25,6 +25,9 @@ A composable HTTP middleware pipeline library for Swift, inspired by [Elixir's P
   - [Response Headers](#response-headers)
   - [Streaming Responses and SSE](#streaming-responses-and-sse)
   - [File Serving](#file-serving)
+  - [Static File Serving](#static-file-serving)
+  - [Sessions](#sessions)
+  - [CSRF Protection](#csrf-protection)
   - [Error Rescue](#error-rescue)
   - [Lifecycle Hooks](#lifecycle-hooks)
   - [Configurable Plugs](#configurable-plugs)
@@ -45,9 +48,12 @@ A composable HTTP middleware pipeline library for Swift, inspired by [Elixir's P
 - **Swift 6 strict concurrency** -- `Sendable` throughout, no `@unchecked Sendable` in core
 - **Halt-not-throw contract** -- HTTP errors (4xx/5xx) halt the pipeline; only infrastructure failures throw
 - **Result-builder router** -- declarative route definitions with scoped middleware, path parameters, wildcards, and sub-router forwarding
-- **Built-in middleware** -- request logging, request IDs, CORS, Basic auth, SSL redirect
+- **Built-in middleware** -- request logging, request IDs, CORS, Basic auth, SSL redirect, sessions, CSRF protection, static file serving
 - **JSON, form, and query param** parsing out of the box
 - **Cookies** -- read request cookies and set response cookies with full RFC 6265 attribute support
+- **Sessions** -- signed cookie-based sessions with HMAC-SHA256 (CryptoKit), session helpers on Connection
+- **CSRF protection** -- token-based cross-site request forgery prevention with form param and header validation
+- **Static file serving** -- directory-based file serving with path traversal protection and extension filtering
 - **Streaming** -- chunked response bodies, Server-Sent Events helper, and file serving
 - **Test helpers** -- `NexusTest` target with `TestConnection` builders for writing tests without boilerplate
 
@@ -215,12 +221,18 @@ swift-nexus/
 │   │   ├── Connection+Chunked.swift    # Streaming response + ChunkWriter
 │   │   ├── Connection+SendFile.swift   # File serving with chunked streaming
 │   │   ├── Connection+RemoteIP.swift   # Remote IP accessor
+│   │   ├── Connection+Session.swift   # Session helpers (get/put/delete/clear)
+│   │   ├── Base64URL.swift            # Base64url encoding utility
+│   │   ├── MessageSigning.swift       # HMAC-SHA256 sign/verify (CryptoKit)
 │   │   └── Plugs/                      # Built-in middleware
 │   │       ├── RequestLogger.swift     # Request/response logging with timing
 │   │       ├── RequestId.swift         # UUID-based X-Request-Id header
 │   │       ├── CORS.swift              # CORS headers + OPTIONS preflight
 │   │       ├── BasicAuth.swift         # HTTP Basic authentication
-│   │       └── SSLRedirect.swift       # HTTP -> HTTPS redirect
+│   │       ├── SSLRedirect.swift       # HTTP -> HTTPS redirect
+│   │       ├── Session.swift           # Signed cookie-based sessions
+│   │       ├── CSRFProtection.swift    # Cross-site request forgery prevention
+│   │       └── StaticFiles.swift       # Directory-based static file serving
 │   ├── NexusRouter/                    # Router DSL target
 │   │   ├── Router.swift                # Router struct with callAsFunction
 │   │   ├── Route.swift                 # Route struct + PathPattern matching
@@ -652,7 +664,122 @@ GET("/download/:filename") { conn in
 }
 ```
 
-> **Warning:** `sendFile` does not validate against directory traversal attacks. Always sanitize user-provided paths before passing them to this method.
+> **Warning:** `sendFile` does not validate against directory traversal attacks. Always sanitize user-provided paths before passing them to this method. For serving an entire directory safely, use `staticFiles` instead.
+
+### Static File Serving
+
+The `staticFiles` plug maps a URL prefix to a filesystem directory, with path traversal protection, MIME type inference, and extension filtering. This is the Nexus equivalent of Elixir's `Plug.Static`:
+
+```swift
+let app = pipeline([
+    staticFiles(StaticFilesConfig(at: "/static", from: "./priv/static")),
+    router.callAsFunction,
+])
+// GET /static/css/app.css  -> serves ./priv/static/css/app.css
+// GET /static/js/main.js   -> serves ./priv/static/js/main.js
+// GET /api/users            -> passes through to router
+```
+
+Only GET and HEAD requests are handled. When a file is not found, the plug sets 404 **without halting** -- downstream plugs can still handle the path.
+
+Extension filtering with `only` and `except`:
+
+```swift
+let assets = staticFiles(StaticFilesConfig(
+    at: "/assets",
+    from: "./public",
+    only: ["css", "js", "png", "jpg", "svg", "woff2"]
+))
+```
+
+### Sessions
+
+Nexus provides signed, cookie-based sessions using HMAC-SHA256 via Apple's CryptoKit. Session data is stored in the cookie itself -- signed but not encrypted.
+
+#### Setup
+
+```swift
+let secret = Data("my-32-byte-minimum-secret-key!!!".utf8)
+
+let app = pipeline([
+    sessionPlug(SessionConfig(secret: secret)),
+    router.callAsFunction,
+])
+```
+
+`SessionConfig` supports all standard cookie attributes (`path`, `domain`, `maxAge`, `secure`, `httpOnly`, `sameSite`).
+
+#### Reading and Writing
+
+```swift
+POST("/login") { conn in
+    let user = try authenticate(conn)
+    return conn
+        .putSession(key: "user_id", value: user.id)
+        .respond(status: .ok)
+}
+
+GET("/profile") { conn in
+    guard let userId = conn.getSession("user_id") else {
+        return conn.respond(status: .unauthorized)
+    }
+    let user = try await fetchUser(userId)
+    return try conn.json(value: user)
+}
+
+POST("/logout") { conn in
+    conn.clearSession()
+        .respond(status: .ok)
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `getSession(_:)` | Read a value. Returns `nil` if not present. |
+| `putSession(key:value:)` | Write a key-value pair. Returns a new connection. |
+| `deleteSession(_:)` | Remove a single key. Returns a new connection. |
+| `clearSession()` | Remove all data and mark the cookie for deletion. |
+
+#### MessageSigning
+
+The `MessageSigning` enum provides low-level HMAC-SHA256 sign/verify that can be used independently:
+
+```swift
+let token = MessageSigning.sign(payload: Data("user_id=42".utf8), secret: secret)
+if let payload = MessageSigning.verify(token: token, secret: secret) {
+    // payload is the original Data
+}
+```
+
+### CSRF Protection
+
+Token-based cross-site request forgery prevention. Requires sessions.
+
+```swift
+let app = pipeline([
+    sessionPlug(SessionConfig(secret: secret)),
+    csrfProtection(),       // must come after sessionPlug
+    router.callAsFunction,
+])
+```
+
+- **GET, HEAD, OPTIONS** -- skip validation, ensure token exists in session
+- **POST, PUT, PATCH, DELETE** -- validate token from `_csrf_token` form parameter or `x-csrf-token` header. Returns 403 on mismatch.
+
+Embed the token in forms or JSON responses:
+
+```swift
+GET("/form") { conn in
+    let (token, conn) = csrfToken(conn: conn)
+    let html = """
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="\(token)">
+        <button>Submit</button>
+    </form>
+    """
+    return conn.respond(status: .ok, body: .string(html))
+}
+```
 
 ### Error Rescue
 
@@ -765,6 +892,9 @@ The adapter:
 | `corsPlug()` | Adds `Access-Control-*` headers. Handles OPTIONS preflight with 204 No Content. | `corsPlug()` or `corsPlug(CORSConfig(allowedOrigin: "https://example.com"))` |
 | `basicAuth()` | Parses `Authorization: Basic` header. Validates with a closure. Returns 401 with `WWW-Authenticate` on failure. Stores username in `assigns["basic_auth_username"]`. | `basicAuth { user, pass in user == "admin" && pass == "secret" }` |
 | `sslRedirect()` | Redirects non-HTTPS requests with 301 Moved Permanently. | `sslRedirect()` or `sslRedirect(host: "example.com")` |
+| `sessionPlug()` | Signed cookie-based sessions with HMAC-SHA256 (CryptoKit). Reads/writes session data via `beforeSend`. | `sessionPlug(SessionConfig(secret: mySecret))` |
+| `csrfProtection()` | Token-based CSRF prevention. Validates on POST/PUT/PATCH/DELETE. Requires `sessionPlug`. | `csrfProtection()` or `csrfProtection(CSRFConfig(formParam: "authenticity_token"))` |
+| `staticFiles()` | Serves a directory of static files from a URL prefix. Path traversal protection, extension filtering. | `staticFiles(StaticFilesConfig(at: "/static", from: "./public"))` |
 | `rescueErrors()` | Catches `NexusHTTPError` and converts to halted responses. Non-Nexus errors propagate. | `rescueErrors(pipeline([...]))` |
 
 ## Testing
