@@ -30,6 +30,9 @@ A composable HTTP middleware pipeline library for Swift, inspired by [Elixir's P
   - [CSRF Protection](#csrf-protection)
   - [Error Rescue](#error-rescue)
   - [Lifecycle Hooks](#lifecycle-hooks)
+  - [Service Injection](#service-injection)
+  - [Typed Assigns](#typed-assigns)
+  - [WebSocket](#websocket)
   - [Configurable Plugs](#configurable-plugs)
   - [Running with Hummingbird](#running-with-hummingbird)
 - [Built-in Plugs](#built-in-plugs)
@@ -54,6 +57,9 @@ A composable HTTP middleware pipeline library for Swift, inspired by [Elixir's P
 - **Sessions** -- signed cookie-based sessions with HMAC-SHA256 (CryptoKit), session helpers on Connection
 - **CSRF protection** -- token-based cross-site request forgery prevention with form param and header validation
 - **Static file serving** -- directory-based file serving with path traversal protection and extension filtering
+- **Service injection** -- `assign(_:value:)` plug factory for injecting database repos, API clients, or any shared service into the pipeline
+- **Typed assigns** -- compile-time-safe `conn[KeyType.self]` access replacing stringly-typed casts, with built-in keys for request ID, session, and remote IP
+- **WebSocket** -- real-time bidirectional communication with functional handlers, Hummingbird adapter integration, and HTTP pipeline assign propagation
 - **Streaming** -- chunked response bodies, Server-Sent Events helper, and file serving
 - **Test helpers** -- `NexusTest` target with `TestConnection` builders for writing tests without boilerplate
 
@@ -190,8 +196,8 @@ Nexus ships as a single Swift package with four library targets. Import only wha
 | Target | Description | External Dependencies |
 |--------|-------------|----------------------|
 | **Nexus** | Core. `Connection`, `Plug` typealias, `RequestBody`/`ResponseBody`, built-in plugs, JSON/form/query/cookie helpers. | `swift-http-types` only |
-| **NexusRouter** | Result-builder HTTP router with path parameters, wildcards, scoped middleware, and sub-router forwarding. | `Nexus` |
-| **NexusHummingbird** | Bridges Nexus pipelines to Hummingbird 2's `HTTPResponder` protocol. | `Nexus` + `Hummingbird` |
+| **NexusRouter** | Result-builder HTTP router with path parameters, wildcards, scoped middleware, sub-router forwarding, and WebSocket route builder. | `Nexus` |
+| **NexusHummingbird** | Bridges Nexus pipelines to Hummingbird 2's `HTTPResponder` protocol. Includes WebSocket upgrade adapter. | `Nexus` + `NexusRouter` + `Hummingbird` + `HummingbirdWebSocket` |
 | **NexusTest** | `TestConnection` builders for constructing `Connection` values in tests without boilerplate. | `Nexus` + `swift-http-types` |
 
 ### Directory Structure
@@ -222,9 +228,17 @@ swift-nexus/
 │   │   ├── Connection+SendFile.swift   # File serving with chunked streaming
 │   │   ├── Connection+RemoteIP.swift   # Remote IP accessor
 │   │   ├── Connection+Session.swift   # Session helpers (get/put/delete/clear)
+│   │   ├── AssignKey.swift             # AssignKey protocol for typed assigns
+│   │   ├── AssignKeys.swift            # Built-in keys (RequestId, Session, RemoteIP)
+│   │   ├── Connection+TypedAssigns.swift # Typed subscript + convenience accessors
 │   │   ├── Base64URL.swift            # Base64url encoding utility
 │   │   ├── MessageSigning.swift       # HMAC-SHA256 sign/verify (CryptoKit)
+│   │   ├── WebSocket/                  # WebSocket core types
+│   │   │   ├── WSMessage.swift         # Message enum (text, binary, ping, pong, close)
+│   │   │   ├── WSConnection.swift      # WebSocket connection with assigns + send
+│   │   │   └── WSHandler.swift         # WSHandler / WSConnectHandler typealiases
 │   │   └── Plugs/                      # Built-in middleware
+│   │       ├── Assign.swift            # Service injection plug factory
 │   │       ├── RequestLogger.swift     # Request/response logging with timing
 │   │       ├── RequestId.swift         # UUID-based X-Request-Id header
 │   │       ├── CORS.swift              # CORS headers + OPTIONS preflight
@@ -239,10 +253,12 @@ swift-nexus/
 │   │   ├── RouteBuilder.swift          # @resultBuilder for route DSL
 │   │   ├── MethodHelpers.swift         # GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS/ANY
 │   │   ├── Scope.swift                 # Scoped routes with prefix + middleware
-│   │   └── Forward.swift               # Sub-router delegation
+│   │   ├── Forward.swift               # Sub-router delegation
+│   │   └── WebSocketRoute.swift        # WSRoute + WS() builder function
 │   ├── NexusHummingbird/               # Hummingbird adapter target
 │   │   ├── HummingbirdAdapter.swift    # HTTPResponder implementation
-│   │   └── NexusRequestContext.swift   # Request context with remote IP
+│   │   ├── NexusRequestContext.swift   # Request context with remote IP
+│   │   └── WebSocketAdapter.swift      # WebSocket upgrade bridge
 │   └── NexusTest/                      # Test helper target
 │       └── TestConnection.swift        # Connection builders for tests
 ├── Tests/
@@ -815,6 +831,141 @@ let addTimingHeader: Plug = { conn in
 
 The server adapter calls `connection.runBeforeSend()` before serializing the response.
 
+### Service Injection
+
+The `assign(_:value:)` plug factory injects any `Sendable` value into `conn.assigns`, making shared services (database repos, API clients, config) available throughout the pipeline without closure capture:
+
+```swift
+let spectro = try SpectroClient(...)
+let app = pipeline([
+    requestId(),
+    assign("spectro", value: spectro),
+    router.callAsFunction,
+])
+```
+
+Route handlers read the injected value from assigns:
+
+```swift
+GET("/donuts") { conn in
+    let spectro = conn.assigns["spectro"] as! SpectroClient
+    let donuts = try await spectro.repository().all(Donut.self)
+    return try conn.json(value: donuts)
+}
+```
+
+A closure-based variant evaluates lazily per request:
+
+```swift
+assign("trace_id") { UUID().uuidString }
+```
+
+Combine with typed assigns (below) for compile-time-safe access.
+
+### Typed Assigns
+
+The `AssignKey` protocol provides type-safe access to connection assigns, replacing stringly-typed casts with compile-time-checked subscripts:
+
+```swift
+// Define a key
+enum SpectroKey: AssignKey {
+    typealias Value = SpectroClient
+}
+
+// Write -- typed
+conn = conn.assign(SpectroKey.self, value: spectro)
+
+// Read -- typed, no cast needed
+let spectro = conn[SpectroKey.self]  // SpectroClient?
+```
+
+#### Built-in Keys
+
+Nexus provides typed keys for values set by built-in plugs:
+
+| Key | Value Type | Set by |
+|-----|-----------|--------|
+| `RequestIdKey` | `String` | `requestId()` plug |
+| `SessionKey` | `[String: String]` | Session plug |
+| `RemoteIPKey` | `String` | Server adapter |
+
+Convenience accessors on `Connection`:
+
+```swift
+conn.requestId  // String? -- shorthand for conn[RequestIdKey.self]
+conn.session    // [String: String]?
+conn.remoteIP   // String?
+```
+
+#### Backward Compatibility
+
+Typed and string-based APIs share the same underlying `assigns` dictionary. Both read and write patterns coexist -- consumers migrate at their own pace:
+
+```swift
+// Typed write, string read
+conn = conn.assign(RequestIdKey.self, value: "abc")
+conn.assigns["RequestIdKey"] as? String  // "abc"
+
+// String write, typed read
+conn = conn.assign(key: "RequestIdKey", value: "xyz")
+conn[RequestIdKey.self]  // "xyz"
+```
+
+### WebSocket
+
+Nexus provides WebSocket support with functional handlers, consistent with the Plug philosophy. WebSocket types live in Nexus core; the upgrade mechanism lives in NexusHummingbird.
+
+#### Core Types
+
+| Type | Description |
+|------|-------------|
+| `WSMessage` | Enum: `.text(String)`, `.binary(Data)`, `.ping`, `.pong`, `.close(code:reason:)` |
+| `WSConnection` | Carries `assigns` from the HTTP upgrade and a `send` function |
+| `WSHandler` | `@Sendable (WSConnection, WSMessage) async throws -> Void` |
+| `WSConnectHandler` | `@Sendable (Connection) async throws -> WSConnection` |
+
+#### Defining WebSocket Routes
+
+Use the `WS()` builder to create WebSocket routes. The `onUpgrade` closure inspects the HTTP `Connection` (with all assigns from upstream plugs) and returns a `WSConnection`. Throw to reject the upgrade.
+
+```swift
+import NexusRouter
+
+let echo = WS("/ws/echo", onUpgrade: { conn in
+    // Authenticate, extract params, propagate assigns
+    WSConnection(assigns: conn.assigns, send: { _ in })
+}, onMessage: { ws, message in
+    switch message {
+    case .text(let text):
+        try await ws.send(.text("Echo: \(text)"))
+    case .binary(let data):
+        try await ws.send(.binary(data))
+    default:
+        break
+    }
+})
+```
+
+#### Running with Hummingbird
+
+Register WebSocket routes via `.nexusWebSocket()` server builder. Non-WebSocket requests fall through to the normal HTTP responder:
+
+```swift
+import NexusHummingbird
+import Hummingbird
+
+let wsRoutes = [echo]
+let adapter = NexusHummingbirdAdapter(plug: myPipeline)
+
+let app = Application(
+    responder: adapter,
+    server: .nexusWebSocket(routes: wsRoutes, plug: myPipeline)
+)
+try await server.runService()
+```
+
+The optional `plug:` parameter runs the HTTP pipeline on upgrade requests, so authentication, session, and request-ID plugs populate `Connection.assigns` before the `WSConnectHandler` runs.
+
 ### Configurable Plugs
 
 For plugs that need a one-time configuration phase (option validation, expensive setup), implement `ConfigurablePlug`:
@@ -887,8 +1038,9 @@ The adapter:
 
 | Plug | Description | Usage |
 |------|-------------|-------|
+| `assign()` | Injects a `Sendable` value into assigns. Static and closure-based overloads. | `assign("db", value: repo)` or `assign("id") { UUID().uuidString }` |
 | `requestLogger()` | Logs `METHOD /path -> STATUS (Xms)` via a configurable logger closure. Uses `beforeSend` to capture the final status. | `requestLogger()` or `requestLogger { msg in myLogger.info(msg) }` |
-| `requestId()` | Generates a UUID, sets `X-Request-Id` response header, stores in `assigns["request_id"]`. | `requestId()` or `requestId(generator: { customId() })` |
+| `requestId()` | Generates a UUID, sets `X-Request-Id` response header, stores in `assigns["request_id"]` and `RequestIdKey`. | `requestId()` or `requestId(generator: { customId() })` |
 | `corsPlug()` | Adds `Access-Control-*` headers. Handles OPTIONS preflight with 204 No Content. | `corsPlug()` or `corsPlug(CORSConfig(allowedOrigin: "https://example.com"))` |
 | `basicAuth()` | Parses `Authorization: Basic` header. Validates with a closure. Returns 401 with `WWW-Authenticate` on failure. Stores username in `assigns["basic_auth_username"]`. | `basicAuth { user, pass in user == "admin" && pass == "secret" }` |
 | `sslRedirect()` | Redirects non-HTTPS requests with 301 Moved Permanently. | `sslRedirect()` or `sslRedirect(host: "example.com")` |
