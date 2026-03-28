@@ -20,7 +20,9 @@ public func requestId(
 ) -> Plug {
     { conn in
         let id = generator()
-        var copy = conn.assign(key: "request_id", value: id)
+        var copy = conn
+            .assign(RequestIdKey.self, value: id)
+            .assign(key: "request_id", value: id)
         if let field = HTTPField.Name(headerName) {
             copy.response.headerFields[field] = id
         }

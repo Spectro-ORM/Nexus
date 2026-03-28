@@ -18,6 +18,6 @@ extension Connection {
     /// To set the remote IP in tests, use
     /// `TestConnection.build(remoteIP: "127.0.0.1")`.
     public var remoteIP: String? {
-        assigns[Self.remoteIPKey] as? String
+        self[RemoteIPKey.self] ?? assigns[Self.remoteIPKey] as? String
     }
 }

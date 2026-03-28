@@ -25,6 +25,10 @@ let package = Package(
             from: "2.0.0"
         ),
         .package(
+            url: "https://github.com/hummingbird-project/hummingbird-websocket.git",
+            from: "2.0.0"
+        ),
+        .package(
             url: "https://github.com/apple/swift-crypto.git",
             from: "3.0.0"
         ),
@@ -59,7 +63,9 @@ let package = Package(
             name: "NexusHummingbird",
             dependencies: [
                 "Nexus",
+                "NexusRouter",
                 .product(name: "Hummingbird", package: "hummingbird"),
+                .product(name: "HummingbirdWebSocket", package: "hummingbird-websocket"),
             ]
         ),
 
@@ -94,9 +100,11 @@ let package = Package(
             name: "NexusHummingbirdTests",
             dependencies: [
                 "Nexus",
+                "NexusRouter",
                 "NexusHummingbird",
                 .product(name: "Hummingbird", package: "hummingbird"),
                 .product(name: "HummingbirdTesting", package: "hummingbird"),
+                .product(name: "HummingbirdWebSocket", package: "hummingbird-websocket"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ]
         ),
