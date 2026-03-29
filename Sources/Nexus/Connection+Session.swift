@@ -66,4 +66,59 @@ extension Connection {
             .assign(key: Connection.sessionDropKey, value: true)
             .assign(key: Connection.sessionTouchedKey, value: true)
     }
+
+    // MARK: - Session Fetch Helpers
+
+    /// Whether the session has been loaded into this connection's assigns.
+    ///
+    /// Returns `true` after ``sessionPlug(_:)`` has run, or after
+    /// ``fetchSession(_:)`` has been called explicitly.
+    public var isSessionFetched: Bool {
+        assigns[Connection.sessionKey] != nil
+    }
+
+    /// Fetches the session from the request cookies using the given configuration.
+    ///
+    /// Replicates the read phase of ``sessionPlug(_:)`` for cases where
+    /// session loading must happen conditionally (e.g., only on authenticated
+    /// routes). If the cookie is absent, expired, or has an invalid signature,
+    /// an empty session is stored — this method never halts the pipeline.
+    ///
+    /// To write the session back to a cookie, the connection must still pass
+    /// through a ``sessionPlug(_:)`` or equivalent `beforeSend` hook.
+    ///
+    /// ```swift
+    /// // Only fetch session on protected routes
+    /// if path.hasPrefix("/dashboard") {
+    ///     conn = conn.fetchSession(sessionConfig)
+    /// }
+    /// let userId = conn.getSession("user_id")
+    /// ```
+    ///
+    /// - Parameter config: The session configuration.
+    /// - Returns: A new connection with session data stored in assigns.
+    public func fetchSession(_ config: SessionConfig) -> Connection {
+        let session: [String: String]
+        if let cookieValue = reqCookies[config.cookieName],
+           let payloadData = MessageSigning.verify(token: cookieValue, secret: config.secret),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: payloadData) {
+            session = decoded
+        } else {
+            session = [:]
+        }
+        return assign(key: Connection.sessionKey, value: session)
+    }
+
+    /// Fetches the session only if it has not already been loaded.
+    ///
+    /// Returns the receiver unchanged when ``isSessionFetched`` is already
+    /// `true`. Use this to avoid redundant cookie parsing when multiple plugs
+    /// may attempt to load the session.
+    ///
+    /// - Parameter config: The session configuration.
+    /// - Returns: A connection with session data available.
+    public func fetchSessionIfMissing(_ config: SessionConfig) -> Connection {
+        guard !isSessionFetched else { return self }
+        return fetchSession(config)
+    }
 }

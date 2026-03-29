@@ -34,6 +34,111 @@ extension Connection {
         request.headerFields[name]
     }
 
+    /// Returns the value of a response header, or `nil` if not present.
+    ///
+    /// - Parameter name: The header field name.
+    /// - Returns: The header value, or `nil`.
+    public func getRespHeader(_ name: HTTPField.Name) -> String? {
+        response.headerFields[name]
+    }
+
+    /// Returns a copy with the given request header set.
+    ///
+    /// Useful for injecting forwarding headers before calling a downstream
+    /// service (e.g., `X-Forwarded-For`).
+    ///
+    /// - Parameters:
+    ///   - name: The header field name.
+    ///   - value: The header value.
+    /// - Returns: A new connection with the request header set.
+    public func putReqHeader(_ name: HTTPField.Name, _ value: String) -> Connection {
+        var copy = self
+        copy.request.headerFields[name] = value
+        return copy
+    }
+
+    /// Returns a copy with the given request header removed.
+    ///
+    /// - Parameter name: The header field name to remove.
+    /// - Returns: A new connection without the request header.
+    public func deleteReqHeader(_ name: HTTPField.Name) -> Connection {
+        var copy = self
+        copy.request.headerFields[name] = nil
+        return copy
+    }
+
+    // MARK: - String-based Header Overloads
+
+    /// Returns a copy with the given response header set.
+    ///
+    /// If `name` is not a valid HTTP header name the connection is returned
+    /// unchanged.
+    ///
+    /// - Parameters:
+    ///   - name: The header field name string (e.g., `"X-Custom-Header"`).
+    ///   - value: The header value.
+    /// - Returns: A new connection with the header set.
+    public func putRespHeader(_ name: String, _ value: String) -> Connection {
+        guard let field = HTTPField.Name(name) else { return self }
+        return putRespHeader(field, value)
+    }
+
+    /// Returns a copy with the given response header removed.
+    ///
+    /// If `name` is not a valid HTTP header name the connection is returned
+    /// unchanged.
+    ///
+    /// - Parameter name: The header field name string.
+    /// - Returns: A new connection without the response header.
+    public func deleteRespHeader(_ name: String) -> Connection {
+        guard let field = HTTPField.Name(name) else { return self }
+        return deleteRespHeader(field)
+    }
+
+    /// Returns the value of a response header by name string, or `nil` if absent.
+    ///
+    /// - Parameter name: The header field name string (case-insensitive).
+    /// - Returns: The header value, or `nil`.
+    public func getRespHeader(_ name: String) -> String? {
+        guard let field = HTTPField.Name(name) else { return nil }
+        return getRespHeader(field)
+    }
+
+    /// Returns a copy with the given request header set.
+    ///
+    /// If `name` is not a valid HTTP header name the connection is returned
+    /// unchanged.
+    ///
+    /// - Parameters:
+    ///   - name: The header field name string.
+    ///   - value: The header value.
+    /// - Returns: A new connection with the request header set.
+    public func putReqHeader(_ name: String, _ value: String) -> Connection {
+        guard let field = HTTPField.Name(name) else { return self }
+        return putReqHeader(field, value)
+    }
+
+    /// Returns a copy with the given request header removed.
+    ///
+    /// If `name` is not a valid HTTP header name the connection is returned
+    /// unchanged.
+    ///
+    /// - Parameter name: The header field name string.
+    /// - Returns: A new connection without the request header.
+    public func deleteReqHeader(_ name: String) -> Connection {
+        guard let field = HTTPField.Name(name) else { return self }
+        return deleteReqHeader(field)
+    }
+
+    /// Returns the value of a request header by name string, or `nil` if absent.
+    ///
+    /// - Parameter name: The header field name string (case-insensitive).
+    /// - Returns: The header value, or `nil`.
+    public func getReqHeader(_ name: String) -> String? {
+        guard let field = HTTPField.Name(name) else { return nil }
+        return getReqHeader(field)
+    }
+
     /// Returns a copy with the `Content-Type` response header set.
     ///
     /// - Parameter contentType: The content type string (e.g., `"text/html"`).

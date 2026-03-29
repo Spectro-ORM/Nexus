@@ -52,15 +52,14 @@ extension Connection {
         }
 
         let stream = AsyncThrowingStream<Data, any Error> { continuation in
-            continuation.onTermination = { _ in
-                fileHandle.closeFile()
-            }
             Task {
+                defer { fileHandle.closeFile() }
                 do {
                     while true {
                         let data = fileHandle.readData(ofLength: chunkSize)
                         if data.isEmpty { break }
-                        continuation.yield(data)
+                        let result = continuation.yield(data)
+                        if case .terminated = result { break }
                     }
                     continuation.finish()
                 } catch {
