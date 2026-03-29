@@ -24,7 +24,7 @@ import HTTPTypes
 ///     }
 /// }
 /// ```
-public struct Router: Sendable {
+public struct Router: Sendable, ModulePlug {
 
     private let routes: [Route]
 
@@ -47,6 +47,19 @@ public struct Router: Sendable {
     /// - Returns: The connection after routing.
     /// - Throws: Any infrastructure error thrown by the matched route's handler.
     public func callAsFunction(_ connection: Connection) async throws -> Connection {
+        try await handle(connection)
+    }
+
+    /// Satisfies ``ModulePlug`` so the router can be used with ``.asPlug()``.
+    ///
+    /// ```swift
+    /// let app = pipeline([auth.asPlug(), router.asPlug()])
+    /// ```
+    ///
+    /// - Parameter connection: The incoming connection.
+    /// - Returns: The connection after routing.
+    /// - Throws: Any infrastructure error thrown by the matched route's handler.
+    public func call(_ connection: Connection) async throws -> Connection {
         try await handle(connection)
     }
 

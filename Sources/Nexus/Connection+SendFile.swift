@@ -56,8 +56,8 @@ extension Connection {
                 defer { fileHandle.closeFile() }
                 do {
                     while true {
-                        let data = fileHandle.readData(ofLength: chunkSize)
-                        if data.isEmpty { break }
+                        guard let data = try fileHandle.read(upToCount: chunkSize),
+                              !data.isEmpty else { break }
                         let result = continuation.yield(data)
                         if case .terminated = result { break }
                     }

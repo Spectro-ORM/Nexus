@@ -95,8 +95,10 @@ extension Compression: ModulePlug {
 /// - Parameters:
 ///   - data: The data to compress.
 ///   - algorithm: The target compression algorithm.
-/// - Returns: Compressed data, or `nil` if compression fails.
+/// - Returns: Compressed data, or `nil` if compression fails or the platform
+///   lacks compression support.
 private func compress(_ data: Data, using algorithm: Compression.Algorithm) -> Data? {
+    #if canImport(Compression)
     switch algorithm {
     case .deflate:
         return (try? (data as NSData).compressed(using: .zlib)) as Data?
@@ -113,6 +115,11 @@ private func compress(_ data: Data, using algorithm: Compression.Algorithm) -> D
         let rawDeflate = zlibData.subdata(in: 2..<(zlibData.count - 4))
         return makeGzip(rawDeflate: rawDeflate, original: data)
     }
+    #else
+    // NSData.compressed(using:) is Apple-only. On Linux, compression is a
+    // no-op until a cross-platform zlib binding is added.
+    return nil
+    #endif
 }
 
 /// Wraps raw DEFLATE data in a gzip container (RFC 1952).
