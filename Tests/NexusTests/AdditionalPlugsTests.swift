@@ -182,7 +182,12 @@ struct CompressionTests {
     }
 
     @Test("deflate compression applied when client accepts deflate")
+    @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
     func test_compression_deflate_compressesBody() async throws {
+        #if !canImport(Compression)
+        // NSData.compressed is Apple-only; skip on Linux.
+        return
+        #endif
         let plug = Compression(algorithms: [.deflate], minimumLength: 100)
         var headers = HTTPFields()
         headers[.acceptEncoding] = "deflate"
@@ -201,7 +206,12 @@ struct CompressionTests {
     }
 
     @Test("gzip compression applied when client accepts gzip")
+    @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
     func test_compression_gzip_compressesBody() async throws {
+        #if !canImport(Compression)
+        // NSData.compressed is Apple-only; skip on Linux.
+        return
+        #endif
         let plug = Compression(algorithms: [.gzip], minimumLength: 100)
         var headers = HTTPFields()
         headers[.acceptEncoding] = "gzip"
