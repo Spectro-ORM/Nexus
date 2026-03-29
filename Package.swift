@@ -32,6 +32,10 @@ let package = Package(
             url: "https://github.com/apple/swift-crypto.git",
             from: "3.0.0"
         ),
+        .package(
+            url: "https://github.com/apple/swift-metrics.git",
+            from: "2.0.0"
+        ),
     ],
     targets: [
         // MARK: Core
@@ -45,6 +49,7 @@ let package = Package(
                     package: "swift-crypto",
                     condition: .when(platforms: [.linux])
                 ),
+                .product(name: "Metrics", package: "swift-metrics"),
             ]
         ),
 
@@ -85,6 +90,7 @@ let package = Package(
             name: "NexusTests",
             dependencies: [
                 "Nexus",
+                "NexusTest",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ]
         ),

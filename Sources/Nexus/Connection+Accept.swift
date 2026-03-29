@@ -20,15 +20,19 @@ extension Connection {
     /// or omit `text/html` entirely.
     ///
     /// The preference is determined by which type appears first in the `Accept`
-    /// header. Falls back to `false` (JSON) when neither is present.
+    /// header. When the header is missing or contains only `*/*` without an
+    /// explicit `application/json` before it, returns `true` — matching
+    /// browser-default behavior where the caller accepts anything and HTML
+    /// is the sensible default for `respondTo`.
     public var prefersHTML: Bool {
-        guard let accept = getReqHeader(.accept) else { return false }
+        guard let accept = getReqHeader(.accept) else { return true }
         let htmlRange = accept.range(of: "text/html")
         let jsonRange = accept.range(of: "application/json")
         switch (htmlRange, jsonRange) {
         case let (h?, j?): return h.lowerBound < j.lowerBound
-        case (.some, nil): return true
-        default:           return false
+        case (.some, nil):  return true
+        case (nil, .some):  return false
+        case (nil, nil):    return true  // */* or unknown → HTML default
         }
     }
 
