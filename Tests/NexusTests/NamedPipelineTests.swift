@@ -96,8 +96,8 @@ struct NamedPipelineTests {
         let result = try await router(conn)
 
         #expect(result.response.status == .ok)
-        let bodyString = try result.response.bodyString()
-        #expect(bodyString == "trace:auth-")
+        let body = bodyString(result)
+        #expect(body == "trace:auth-")
     }
 
     // MARK: - Reuse across scopes
@@ -126,12 +126,12 @@ struct NamedPipelineTests {
 
         let conn1 = TestConnection.build(path: "/api/v1/users")
         let result1 = try await router(conn1)
-        #expect(try result1.response.bodyString() == "v1:common-")
+        #expect(bodyString(result1) == "v1:common-")
 
         // Reset connection for second request
         let conn2 = TestConnection.build(path: "/api/v2/users")
         let result2 = try await router(conn2)
-        #expect(try result2.response.bodyString() == "v2:common-")
+        #expect(bodyString(result2) == "v2:common-")
     }
 
     // MARK: - Integration with buildPipeline
@@ -249,7 +249,7 @@ struct NamedPipelineTests {
     func test_emptyPipeline_identityBehavior() async throws {
         let emptyPipeline = NamedPipeline {}
 
-        let conn = TestConnection.build(path: "/test", body: .string("original"))
+        let conn = TestConnection.build(path: "/test", body: .buffered(Data("original".utf8)))
         let result = try await emptyPipeline.call(conn)
 
         // Should pass through unchanged
@@ -273,7 +273,7 @@ struct NamedPipelineTests {
         let result = try await router(conn)
 
         #expect(result.response.status == .ok)
-        #expect(try result.response.bodyString() == "users")
+        #expect(bodyString(result) == "users")
     }
 
     // MARK: - ModulePlug conformance
@@ -315,7 +315,7 @@ struct NamedPipelineTests {
         }
 
         // Send to another isolation context
-        let result = await Task {
+        let result = try await Task {
             let conn = TestConnection.build(path: "/")
             return try await pipeline.call(conn)
         }.value
@@ -350,7 +350,7 @@ struct NamedPipelineTests {
         let result = try await router(conn)
 
         // Nested scopes: outer runs first, then inner, then handler
-        #expect(try result.response.bodyString() == "outer-inner-")
+        #expect(bodyString(result) == "outer-inner-")
     }
 
     @Test("conditional plugs inside named pipeline")
@@ -386,4 +386,11 @@ struct NamedPipelineTests {
 
         #expect(result.assigns["trace"] as? String == "ABC")
     }
+}
+
+// MARK: - Helpers
+
+private func bodyString(_ conn: Connection) -> String {
+    guard case .buffered(let data) = conn.responseBody else { return "" }
+    return String(data: data, encoding: .utf8) ?? ""
 }
