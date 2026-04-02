@@ -81,3 +81,27 @@ public func scope(
         )
     }
 }
+
+/// Creates a group of routes that share a common path prefix and a
+/// named middleware pipeline.
+///
+/// ```swift
+/// let apiPipeline = NamedPipeline { requestId(); auth }
+///
+/// scope("/api", through: apiPipeline) {
+///     GET("/users") { conn in ... }
+/// }
+/// ```
+///
+/// - Parameters:
+///   - prefix: The path prefix to prepend to all nested routes.
+///   - pipeline: A named pipeline containing the ordered list of plugs.
+///   - routes: A result builder closure that declares the routes within this scope.
+/// - Returns: An array of routes with the prefix and pipeline applied.
+public func scope(
+    _ prefix: String,
+    through pipeline: NamedPipeline,
+    @RouteBuilder _ routes: () -> [Route]
+) -> [Route] {
+    scope(prefix, through: [pipeline.asPlug()], routes)
+}
