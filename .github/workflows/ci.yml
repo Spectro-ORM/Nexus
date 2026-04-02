@@ -20,7 +20,7 @@ jobs:
       - name: Setup Swift
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: "6.1"
+          swift-version: "6.3"
 
       - name: Build
         run: swift build
@@ -32,7 +32,7 @@ jobs:
     name: Build (Linux)
     runs-on: ubuntu-latest
     container:
-      image: swift:6.1
+      image: swift:6.3
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +43,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     container:
-      image: swift:6.1
+      image: swift:6.3
     steps:
       - uses: actions/checkout@v4
 
