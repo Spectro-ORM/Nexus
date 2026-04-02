@@ -34,6 +34,7 @@ public struct NamedPipeline: Sendable, ModulePlug {
     /// Processes a connection through the pipeline.
     /// Required for ModulePlug conformance.
     public func call(_ connection: Connection) async throws -> Connection {
-        try await asPlug()(connection)
+        let plug = asPlug()
+        return try await plug(connection)
     }
 }
