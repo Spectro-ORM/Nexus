@@ -1,5 +1,6 @@
 import Testing
 import HTTPTypes
+import Foundation
 import Nexus
 
 #if canImport(NexusHummingbird)
@@ -342,7 +343,7 @@ struct AdapterPropertyTests {
             // Register callbacks in order 0, 1, 2, ...
             for i in 0..<callbackCount {
                 result = result.registerBeforeSend { [i] connection in
-                    await tracker.append(i)
+                    tracker.append(i)
                     return connection
                 }
             }
