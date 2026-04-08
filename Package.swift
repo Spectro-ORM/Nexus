@@ -112,6 +112,7 @@ let package = Package(
             dependencies: [
                 "Nexus",
                 "NexusTest",
+                "NexusHummingbird",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "SwiftCheck", package: "SwiftCheck"),
             ]

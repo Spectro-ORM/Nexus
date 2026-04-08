@@ -1,7 +1,11 @@
 import Testing
 import HTTPTypes
 import Nexus
+
+#if canImport(NexusHummingbird)
 @testable import NexusHummingbird
+#endif
+
 #if canImport(NexusVapor)
 import Vapor
 @testable import NexusVapor
