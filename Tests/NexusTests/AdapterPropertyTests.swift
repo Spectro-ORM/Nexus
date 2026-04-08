@@ -95,7 +95,7 @@ struct AdapterPropertyTests {
         for statusCode in statusCodes {
             let plug: Plug = { conn in
                 var copy = conn
-                copy.response = HTTPResponse(status: HTTPStatus(statusCode))
+                copy.response = HTTPResponse(status: HTTPResponse.Status(statusCode))
                 return copy
             }
 
@@ -104,7 +104,7 @@ struct AdapterPropertyTests {
 
             // Verify status code is correct
             #expect(
-                hbResult.status == HTTPStatus(statusCode),
+                hbResult.status == HTTPResponse.Status(statusCode),
                 "Status code \(statusCode) mismatch: expected=\(statusCode), got=\(hbResult.status.code)"
             )
         }
@@ -218,7 +218,7 @@ struct AdapterPropertyTests {
 
     @Test("Halted connections are handled correctly")
     func haltedConnectionsHandledIdentically() async {
-        let haltedStatuses: [HTTPStatus] = [
+        let haltedStatuses: [HTTPResponse.Status] = [
             .forbidden, .unauthorized, .notFound, .methodNotAllowed,
         ]
 
@@ -343,7 +343,7 @@ struct AdapterPropertyTests {
             // Register callbacks in order 0, 1, 2, ...
             for i in 0..<callbackCount {
                 result = result.registerBeforeSend { [i] connection in
-                    tracker.append(i)
+                    Task { await tracker.append(i) }
                     return connection
                 }
             }
@@ -413,11 +413,11 @@ struct AdapterPropertyTests {
 
     /// Structure to hold adapter test results
     private struct AdapterTestResult: Sendable {
-        let status: HTTPStatus
+        let status: HTTPResponse.Status
         let headers: HTTPFields
         let body: Data
 
-        init(status: HTTPStatus, headers: HTTPFields = [:], body: Data = Data()) {
+        init(status: HTTPResponse.Status, headers: HTTPFields = [:], body: Data = Data()) {
             self.status = status
             self.headers = headers
             self.body = body

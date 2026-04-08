@@ -13,14 +13,14 @@ struct BodyErrorPathTests {
     func requestBodyEmpty() {
         let body = RequestBody.empty
 
-        case .empty = body
+        if case .empty = body {
     }
 
     @Test("RequestBody buffered with empty data")
     func requestBodyBufferedEmpty() {
         let body = RequestBody.buffered(Data())
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.isEmpty)
     }
 
@@ -29,7 +29,7 @@ struct BodyErrorPathTests {
         let largeData = Data(repeating: 0xFF, count: 10_000_000)
         let body = RequestBody.buffered(largeData)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.count == 10_000_000)
     }
 
@@ -45,7 +45,7 @@ struct BodyErrorPathTests {
 
         let body = RequestBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         do {
             for try await _ in retrievedStream {
@@ -72,7 +72,7 @@ struct BodyErrorPathTests {
 
         let body = RequestBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var chunks: [[UInt8]] = []
         for try await chunk in retrievedStream {
@@ -97,7 +97,7 @@ struct BodyErrorPathTests {
 
         let body = RequestBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var chunkCount = 0
         for try await chunk in retrievedStream {
@@ -114,14 +114,14 @@ struct BodyErrorPathTests {
     func responseBodyEmpty() {
         let body = ResponseBody.empty
 
-        case .empty = body
+        if case .empty = body {
     }
 
     @Test("ResponseBody buffered with empty data")
     func responseBodyBufferedEmpty() {
         let body = ResponseBody.buffered(Data())
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.isEmpty)
     }
 
@@ -130,7 +130,7 @@ struct BodyErrorPathTests {
         let largeData = Data(repeating: 0xAA, count: 10_000_000)
         let body = ResponseBody.buffered(largeData)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.count == 10_000_000)
     }
 
@@ -146,7 +146,7 @@ struct BodyErrorPathTests {
 
         let body = ResponseBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         do {
             for try await _ in retrievedStream {
@@ -172,7 +172,7 @@ struct BodyErrorPathTests {
 
         let body = ResponseBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var chunks: [[UInt8]] = []
         for try await chunk in retrievedStream {
@@ -190,7 +190,7 @@ struct BodyErrorPathTests {
     func responseBodyStringEmpty() {
         let body = ResponseBody.string("")
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.isEmpty)
     }
 
@@ -198,7 +198,7 @@ struct BodyErrorPathTests {
     func responseBodyStringASCII() {
         let body = ResponseBody.string("Hello, World!")
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         let string = String(data: data, encoding: .utf8)
         #expect(string == "Hello, World!")
     }
@@ -208,7 +208,7 @@ struct BodyErrorPathTests {
         let input = "Hello 世界 🌍"
         let body = ResponseBody.string(input)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         let string = String(data: data, encoding: .utf8)
         #expect(string == input)
     }
@@ -218,7 +218,7 @@ struct BodyErrorPathTests {
         let input = "😀😃😄😁😆"
         let body = ResponseBody.string(input)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         let string = String(data: data, encoding: .utf8)
         #expect(string == input)
     }
@@ -234,7 +234,7 @@ struct BodyErrorPathTests {
 
         let body = ResponseBody.string("valid")
 
-        case .buffered = body  // Should always succeed with valid string
+        if case .buffered = body {
     }
 
     @Test("ResponseBody string with very long string")
@@ -242,7 +242,7 @@ struct BodyErrorPathTests {
         let longString = String(repeating: "a", count: 1_000_000)
         let body = ResponseBody.string(longString)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         #expect(data.count == 1_000_000)
     }
 
@@ -251,7 +251,7 @@ struct BodyErrorPathTests {
         let input = "Line 1\nLine 2\r\nLine 3\tTabbed\u{0}Null"
         let body = ResponseBody.string(input)
 
-        case let .buffered(data) = body
+        if case let .buffered(data) = body {
         let string = String(data: data, encoding: .utf8)
         #expect(string == input)
     }
@@ -322,7 +322,7 @@ struct BodyErrorPathTests {
 
         let body = RequestBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var count = 0
         for try await _ in retrievedStream {
@@ -349,7 +349,7 @@ struct BodyErrorPathTests {
 
         let body = ResponseBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var count = 0
         for try await _ in retrievedStream {
@@ -380,7 +380,7 @@ struct BodyErrorPathTests {
 
         let body = RequestBody.stream(stream)
 
-        case let .stream(retrievedStream) = body
+        if case let .stream(retrievedStream) = body {
 
         var chunkCount = 0
         for try await _ in retrievedStream {

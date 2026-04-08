@@ -10,7 +10,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("registerBeforeSend preserves other fields")
     func registerBeforeSendPreservesOtherFields() {
-        var conn = TestConnection.make()
+        var conn = Connection.make()
         conn = conn.assign(key: "test", value: "value")
         conn.response.status = .created
 
@@ -23,7 +23,7 @@ struct BeforeSendEdgeCasesTests {
     @Test("registerBeforeSend adds callback without executing")
     func registerBeforeSendAddsCallback() {
         var executed = false
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { _ in
             executed = true
@@ -36,7 +36,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("registerBeforeSend multiple callbacks accumulate")
     func registerBeforeSendMultipleCallbacks() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn
             .registerBeforeSend { $0 }
@@ -48,7 +48,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("registerBeforeSend creates independent copy")
     func registerBeforeSendCreatesIndependentCopy() {
-        let original = TestConnection.make()
+        let original = Connection.make()
         var modified = original.registerBeforeSend { $0 }
 
         #expect(original.beforeSend.isEmpty)
@@ -66,7 +66,7 @@ struct BeforeSendEdgeCasesTests {
     func runBeforeSendLIFOOrder() {
         var executionOrder: [Int] = []
 
-        let conn = TestConnection.make()
+        let conn = Connection.make()
         let registered = conn
             .registerBeforeSend { _ in
                 executionOrder.append(1)
@@ -88,7 +88,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("runBeforeSend clears callback array")
     func runBeforeSendClearsCallbacks() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
         let registered = conn
             .registerBeforeSend { $0 }
             .registerBeforeSend { $0 }
@@ -100,7 +100,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("runBeforeSend with no callbacks is no-op")
     func runBeforeSendNoCallbacks() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let result = conn.runBeforeSend()
 
@@ -112,12 +112,12 @@ struct BeforeSendEdgeCasesTests {
     @Test("runBeforeSend with single callback")
     func runBeforeSendSingleCallback() {
         var callbackExecuted = false
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { conn in
             callbackExecuted = true
             var copy = conn
-            copy.response.status = .created
+            copy.response.status = .init(statusCode: 201)
             return copy
         }
 
@@ -130,7 +130,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("runBeforeSend with callback that modifies connection")
     func runBeforeSendModifiesConnection() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn
             .registerBeforeSend { conn in
@@ -149,7 +149,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("runBeforeSend with callback chain")
     func runBeforeSendCallbackChain() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn
             .registerBeforeSend { conn in
@@ -159,7 +159,7 @@ struct BeforeSendEdgeCasesTests {
             }
             .registerBeforeSend { conn in
                 var copy = conn
-                copy.response.status = .created
+                copy.response.status = .init(statusCode: 201)
                 return copy
             }
             .registerBeforeSend { conn in
@@ -181,7 +181,7 @@ struct BeforeSendEdgeCasesTests {
     @Test("runBeforeSend with halted connection")
     func runBeforeSendWithHaltedConnection() {
         var callbackExecuted = false
-        var conn = TestConnection.make()
+        var conn = Connection.make()
         conn.isHalted = true
 
         let registered = conn.registerBeforeSend { conn in
@@ -202,7 +202,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("runBeforeSend callback that throws")
     func runBeforeSendCallbackThrows() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { _ in
             // Note: callbacks cannot throw - they return Connection
@@ -234,12 +234,12 @@ struct BeforeSendEdgeCasesTests {
         }
 
         let actor = TestActor()
-        var conn = TestConnection.make()
+        var conn = Connection.make()
 
         // Register Sendable callback
         conn = conn.registerBeforeSend { conn in
             var copy = conn
-            copy.response.status = .created
+            copy.response.status = .init(statusCode: 201)
             return copy
         }
 
@@ -254,7 +254,7 @@ struct BeforeSendEdgeCasesTests {
     @Test("calling runBeforeSend twice only executes once")
     func runBeforeSendTwice() {
         var executionCount = 0
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { _ in
             executionCount += 1
@@ -272,14 +272,14 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("registering callbacks after runBeforeSend")
     func registerAfterRunBeforeSend() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { $0 }
         let afterRun = registered.runBeforeSend()
 
         let newRegistration = afterRun.registerBeforeSend { conn in
             var copy = conn
-            copy.response.status = .created
+            copy.response.status = .init(statusCode: 201)
             return copy
         }
 
@@ -293,7 +293,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("callback that reads and modifies assigns")
     func callbackReadsAndModifiesAssigns() {
-        var conn = TestConnection.make()
+        var conn = Connection.make()
         conn = conn.assign(key: "counter", value: 0)
 
         let registered = conn.registerBeforeSend { conn in
@@ -309,7 +309,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("callback that conditionally modifies response")
     func callbackConditionallyModifiesResponse() {
-        let conn = TestConnection.make()
+        let conn = Connection.make()
 
         let registered = conn.registerBeforeSend { conn in
             var copy = conn
@@ -327,7 +327,7 @@ struct BeforeSendEdgeCasesTests {
 
     @Test("callback with empty response body")
     func callbackWithEmptyBody() {
-        var conn = TestConnection.make()
+        var conn = Connection.make()
         conn.responseBody = .string("original")
 
         let registered = conn.registerBeforeSend { conn in
