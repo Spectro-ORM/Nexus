@@ -1,6 +1,7 @@
 import Testing
 import HTTPTypes
 @testable import Nexus
+@testable import NexusRouter
 
 /// Tests for PathPattern matching edge cases
 @Suite("PathPattern Edge Cases")
