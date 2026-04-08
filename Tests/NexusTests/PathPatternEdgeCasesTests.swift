@@ -22,8 +22,9 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/users")
 
         #expect(pattern.segments.count == 1)
-        case .literal(let value) = pattern.segments[0]
-        #expect(value == "users")
+        if case .literal(let value) = pattern.segments[0] {
+            #expect(value == "users")
+        }
     }
 
     @Test("PathPattern with multiple literal segments")
@@ -31,12 +32,13 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/api/v1/users")
 
         #expect(pattern.segments.count == 3)
-        case .literal(let v1) = pattern.segments[0]
-        case .literal(let v2) = pattern.segments[1]
-        case .literal(let v3) = pattern.segments[2]
-        #expect(v1 == "api")
-        #expect(v2 == "v1")
-        #expect(v3 == "users")
+        if case .literal(let v1) = pattern.segments[0],
+           case .literal(let v2) = pattern.segments[1],
+           case .literal(let v3) = pattern.segments[2] {
+            #expect(v1 == "api")
+            #expect(v2 == "v1")
+            #expect(v3 == "users")
+        }
     }
 
     @Test("PathPattern with parameter segment")
@@ -44,10 +46,11 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/users/:id")
 
         #expect(pattern.segments.count == 2)
-        case .literal(let v1) = pattern.segments[0]
-        case .parameter(let v2) = pattern.segments[1]
-        #expect(v1 == "users")
-        #expect(v2 == "id")
+        if case .literal(let v1) = pattern.segments[0],
+           case .parameter(let v2) = pattern.segments[1] {
+            #expect(v1 == "users")
+            #expect(v2 == "id")
+        }
     }
 
     @Test("PathPattern with multiple parameters")
@@ -55,14 +58,15 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/users/:userId/posts/:postId")
 
         #expect(pattern.segments.count == 4)
-        case .literal(let v1) = pattern.segments[0]
-        case .parameter(let v2) = pattern.segments[1]
-        case .literal(let v3) = pattern.segments[2]
-        case .parameter(let v4) = pattern.segments[3]
-        #expect(v1 == "users")
-        #expect(v2 == "userId")
-        #expect(v3 == "posts")
-        #expect(v4 == "postId")
+        if case .literal(let v1) = pattern.segments[0],
+           case .parameter(let v2) = pattern.segments[1],
+           case .literal(let v3) = pattern.segments[2],
+           case .parameter(let v4) = pattern.segments[3] {
+            #expect(v1 == "users")
+            #expect(v2 == "userId")
+            #expect(v3 == "posts")
+            #expect(v4 == "postId")
+        }
     }
 
     @Test("PathPattern with unnamed wildcard")
@@ -70,10 +74,11 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/files/*")
 
         #expect(pattern.segments.count == 2)
-        case .literal(let v1) = pattern.segments[0]
-        case .wildcard(let v2) = pattern.segments[1]
-        #expect(v1 == "files")
-        #expect(v2 == nil)
+        if case .literal(let v1) = pattern.segments[0],
+           case .wildcard(let v2) = pattern.segments[1] {
+            #expect(v1 == "files")
+            #expect(v2 == nil)
+        }
     }
 
     @Test("PathPattern with named wildcard")
@@ -81,10 +86,11 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/files/*path")
 
         #expect(pattern.segments.count == 2)
-        case .literal(let v1) = pattern.segments[0]
-        case .wildcard(let v2) = pattern.segments[1]
-        #expect(v1 == "files")
-        #expect(v2 == "path")
+        if case .literal(let v1) = pattern.segments[0],
+           case .wildcard(let v2) = pattern.segments[1] {
+            #expect(v1 == "files")
+            #expect(v2 == "path")
+        }
     }
 
     @Test("PathPattern with mixed segments")
@@ -92,10 +98,12 @@ struct PathPatternEdgeCasesTests {
         let pattern = PathPattern("/api/:version/files/*path")
 
         #expect(pattern.segments.count == 4)
-        case .literal = pattern.segments[0]  // api
-        case .parameter = pattern.segments[1]  // version
-        case .literal = pattern.segments[2]  // files
-        case .wildcard = pattern.segments[3]  // path
+        if case .literal = pattern.segments[0],  // api
+           case .parameter = pattern.segments[1],  // version
+           case .literal = pattern.segments[2],  // files
+           case .wildcard = pattern.segments[3] {  // path
+            // All segments match expected types
+        }
     }
 
     @Test("PathPattern with trailing slash")
@@ -104,8 +112,9 @@ struct PathPatternEdgeCasesTests {
 
         // Trailing slash is stripped by split
         #expect(pattern.segments.count == 1)
-        case .literal(let value) = pattern.segments[0]
-        #expect(value == "users")
+        if case .literal(let value) = pattern.segments[0] {
+            #expect(value == "users")
+        }
     }
 
     @Test("PathPattern with double slashes")
@@ -114,10 +123,11 @@ struct PathPatternEdgeCasesTests {
 
         // Empty segments are omitted
         #expect(pattern.segments.count == 2)
-        case .literal(let v1) = pattern.segments[0]
-        case .literal(let v2) = pattern.segments[1]
-        #expect(v1 == "api")
-        #expect(v2 == "users")
+        if case .literal(let v1) = pattern.segments[0],
+           case .literal(let v2) = pattern.segments[1] {
+            #expect(v1 == "api")
+            #expect(v2 == "users")
+        }
     }
 
     // MARK: - Matching Edge Cases
