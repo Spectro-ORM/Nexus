@@ -57,3 +57,19 @@ jobs:
           if [ $TEST_EXIT -ne 0 ]; then
             echo "::warning::swift test exited with code $TEST_EXIT (likely NIO teardown crash) but all tests passed"
           fi
+
+  coverage-check:
+    name: Coverage Check
+    runs-on: macos-15
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate coverage data
+        run: |
+          swift test --enable-code-coverage
+
+      - name: Check coverage threshold
+        run: |
+          .github/workflows/scripts/check-coverage.sh
+        continue-on-error: false

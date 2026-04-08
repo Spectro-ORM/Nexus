@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "Nexus", targets: ["Nexus"]),
         .library(name: "NexusRouter", targets: ["NexusRouter"]),
         .library(name: "NexusHummingbird", targets: ["NexusHummingbird"]),
+        .library(name: "NexusVapor", targets: ["NexusVapor"]),
         .library(name: "NexusTest", targets: ["NexusTest"]),
     ],
     dependencies: [
@@ -29,12 +30,20 @@ let package = Package(
             from: "2.0.0"
         ),
         .package(
+            url: "https://github.com/vapor/vapor.git",
+            from: "4.0.0"
+        ),
+        .package(
             url: "https://github.com/apple/swift-crypto.git",
             from: "3.0.0"
         ),
         .package(
             url: "https://github.com/apple/swift-metrics.git",
             from: "2.0.0"
+        ),
+        .package(
+            url: "https://github.com/typelift/SwiftCheck.git",
+            from: "0.12.0"
         ),
     ],
     targets: [
@@ -74,6 +83,17 @@ let package = Package(
             ]
         ),
 
+        // MARK: Vapor Adapter
+
+        .target(
+            name: "NexusVapor",
+            dependencies: [
+                "Nexus",
+                "NexusRouter",
+                .product(name: "Vapor", package: "vapor"),
+            ]
+        ),
+
         // MARK: Test Helpers
 
         .target(
@@ -81,6 +101,7 @@ let package = Package(
             dependencies: [
                 "Nexus",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "SwiftCheck", package: "SwiftCheck"),
             ]
         ),
 
@@ -92,6 +113,7 @@ let package = Package(
                 "Nexus",
                 "NexusTest",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "SwiftCheck", package: "SwiftCheck"),
             ]
         ),
         .testTarget(
@@ -114,5 +136,16 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ]
         ),
+        // Temporarily disabled benchmarks due to API updates
+        // .testTarget(
+        //     name: "NexusVaporBenchmarks",
+        //     dependencies: [
+        //         "Nexus",
+        //         "NexusRouter",
+        //         "NexusVapor",
+        //         .product(name: "Vapor", package: "vapor"),
+        //         .product(name: "HTTPTypes", package: "swift-http-types"),
+        //     ]
+        // ),
     ]
 )
